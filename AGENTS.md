@@ -1,0 +1,233 @@
+# AGENTS.md - working on a BLIT386 game
+
+<!-- blit-kit:managed:start -->
+<!-- Everything between the managed markers is owned by @blit386/kit and will be rewritten by a future
+     `npx blit agents sync`. Put your own notes in the "Your notes" section below the end marker. -->
+
+This file is the home base for anyone (a person or an AI assistant) working on this game. It is short on purpose: it
+tells you how a BLIT386 game is shaped, the rules to follow, and which doc to open when you need detail. Read the linked
+doc only when the task needs it - do not load everything at once.
+
+BLIT386 is a palette-first 2D pixel engine. You draw with small whole-number coordinates and numbered colors, and the
+engine puts pixels on a `<canvas>`. It runs on WebGPU when available and falls back to plain Canvas 2D otherwise, so a
+game always renders.
+
+## The shape of every game
+
+A game is one class with up to four methods, handed to `bootstrap()`:
+
+```js
+import { bootstrap, BT, Color32, Rect2i, Vector2i } from 'blit386';
+
+class Game {
+  // configure() {}              // optional; omit to use the default 320x240 screen at 60 FPS
+  async init() {
+    // runs once at startup; load assets and set up colors here
+    return true; // return true when setup succeeded
+  }
+  update() {} // runs ~60 times a second; read input, move things, change state
+  render() {} // runs ~60 times a second; draw the current frame
+}
+
+bootstrap(Game);
+```
+
+`update()` decides what happens; `render()` only draws. Keep them separate.
+
+## Hard rules (do not break these)
+
+- Whole numbers for positions and sizes. Use `Vector2i(x, y)` for points and `Rect2i(x, y, w, h)` for boxes. Never pass
+  raw floats as screen coordinates.
+- Use the `BT` namespace for everything the engine does (`BT.clear`, `BT.drawRectFill`, `BT.isDown`, ...). Do not reach
+  for internal classes.
+- Colors are palette slots. Create a palette, put colors in numbered slots (slot 0 is always transparent, so start at
+  1), and draw with those numbers. See `docs/palette.md`.
+- `await` async loads. Anything that loads (fonts, sprites) returns a promise; forgetting `await` is the most common
+  beginner bug.
+- No fullscreen post-process effects in a starter. Effects like CRT need WebGPU and do not run on the Canvas 2D
+  fallback. Keep starters working everywhere.
+- Sound waits for the player. Browsers refuse to play audio until someone clicks, taps, or presses a key, so a game is
+  silent until then - that is the web's rule, not a bug. `BT.musicPlay` is remembered and starts on the first
+  interaction; `BT.soundPlay` before it is dropped. See `docs/audio.md`.
+- Never edit lock files by hand (`package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `bun.lock`, `bun.lockb`). Only the
+  package manager writes them; a hand edit breaks the next install.
+- Never edit `.env` files (`.env`, `.env.local`, `.env.production`, and similar). They hold secrets. `.env.example` is a
+  template and is fine to edit.
+- No emoji anywhere in code, comments, or text.
+
+## When you need detail, open the right doc
+
+| You want to... | Read |
+| --- | --- |
+| Install Node, run the game, edit your first line | `docs/getting-started.md` |
+| Understand init/update/render, timing, orientation | `docs/basics.md` |
+| Clear the screen, draw rectangles, lines, text | `docs/drawing.md` |
+| Read the keyboard, mouse, or a gamepad | `docs/input.md` |
+| Make and use colors (palette, slots) | `docs/palette.md` |
+| Roll dice, pick, shuffle, or seed a run so it repeats | `docs/random.md` |
+| Generate terrain, caves, or patterns you can walk back to | `docs/random.md` (Terrain and patterns) |
+| Play sound effects and music, or fix a silent game | `docs/audio.md` |
+| Keep playing while you edit code or assets | `docs/hot-reload.md` |
+| Tell a dev build from a release build (debug HUDs, cheat keys) | `docs/hot-reload.md` (Telling a dev build from a release build) |
+| Show a loading screen while assets load | `docs/basics.md` (Waiting for assets) |
+| Turn off the BLIT386 splash, or see it during development | `docs/basics.md` (The splash) |
+| Fix a blank screen, an error, a broken change | `docs/when-something-breaks.md` |
+
+When these local docs come up short, the live documentation at https://blit386.dev has the full engine reference, and
+this game already knows how to query it:
+
+- Ask the `blit386-docs` MCP server. If you set up Claude Code, Cursor, GitHub Copilot, Antigravity, OpenCode, or Zed,
+  it is already configured (`.mcp.json` for Claude Code and Copilot, `.cursor/mcp.json` for Cursor,
+  `.agents/mcp_config.json` for Antigravity, `opencode.json` for OpenCode, `.zed/settings.json` for Zed) and gives your
+  assistant three tools: `search_docs` (full-text search - page titles, URLs, and excerpts), `get_doc_page` (one page's
+  full text, from a URL `search_docs` returned), and `get_docs_summary` (the whole site's contents in one compact
+  block).
+- No MCP server? Fetch https://blit386.dev/llms.txt for the same summary as one plain text file.
+- Want a complete program to learn from? https://blit386.dev/docs/build-a-game publishes this file, the guides, and the
+  skills for the current release, plus full example games.
+- Reading a page? Request its URL with the header `Accept: text/markdown` and the site returns markdown instead of HTML
+  \- far less to wade through.
+
+The `ask-the-docs` skill walks an assistant through all three. The source code lives at
+https://github.com/blit386/blit386 - go there only when the documentation itself does not answer the question.
+
+## Running the game
+
+From the project folder:
+
+- `npm run dev` (or `pnpm run dev`) - start the game and open it in your browser.
+- `npx blit run` - the same thing, the friendly way.
+- `npx blit play` - play-test the game from the terminal and print its state (`npx blit play --help` for the steps).
+- `npx blit doctor` - check your setup if something seems off.
+- `npx blit upgrade` - update BLIT386 to the latest version (and offer to fix any renamed API names for you).
+- `npx blit migrate` - update old BLIT386 names in your game to the current ones (and enable hot reload on blit386
+  1.4.0+). Add `--write` to apply the changes.
+
+The `blit` helper is installed inside the project (it ships with `@blit386/kit`), so it is not on the system PATH.
+Always invoke it through `npx blit ...` (or `pnpm exec blit ...`); plain `blit` only works inside package scripts.
+
+While the dev server is running, most saves hot-reload instead of wiping the page: edits to `update()` / `render()` keep
+your score and position; edits to `init()` re-run setup (optional `onHotReload` can copy fields across - see the
+commented example in `src/game.js` / `src/game.ts`); edits to `configure()` screen settings reload the page; files under
+`public/` swap in place. Details: `docs/hot-reload.md`.
+
+## Good habits
+
+- Change one small thing, then look at the browser. Fast loops beat big rewrites.
+- Keep `update()` cheap: it runs 60 times a second. Avoid creating lots of new objects every frame in hot paths.
+- The starter game (`src/game.js`, or `src/game.ts` in a TypeScript project) is yours to change. Read its comments
+  first; they explain every line. Prefer starting from scratch over editing the starter around your idea? Run
+  `npx blit clean` to replace it with an empty `init`/`update`/`render` skeleton - same shape, no demo code.
+- Prefer method-body edits while you tweak gameplay so hot reload keeps state. Reach for `onHotReload` only when you
+  edit `init()` a lot and care about carrying score (or similar) across the re-init.
+
+## Working with an AI assistant
+
+If you use Claude Code, open `CLAUDE.md` for the full project guide. Rules loaded automatically from `.claude/rules/`
+tell Claude the engine's naming conventions. Skills in `.claude/skills/` are loaded on demand. `.mcp.json` points Claude
+Code at the BLIT386 documentation server, and `.claude/settings.json` pre-approves it, so once you have trusted the
+project folder your assistant can search the live docs without a further prompt.
+
+If you use Cursor, `.cursor/rules/` loads rules automatically when you open the project, and `.cursor/mcp.json` points
+it at the same documentation server.
+
+If you use OpenCode, it reads this file and the skills in `.agents/skills/` on its own. `opencode.json` points it at the
+same documentation server, turns on the formatters (Biome for code, Prettier for Markdown and YAML), and keeps it from
+editing lock files and `.env` files or running destructive git commands. OpenCode has no trust prompt, so it loads
+`.opencode/plugins/kit-guard.ts` the moment you open the project - the file's first lines say exactly what it does.
+
+If you use Zed, `.zed/settings.json` turns on format on save, formats JavaScript, TypeScript, and JSON with Biome, and
+points Zed at the same documentation server. Zed reads this file and the skills in `.agents/skills/` on its own. To use
+it:
+
+- Trust the project when Zed asks (Restricted Mode). Until you do, Zed ignores everything in `.zed/`.
+- Install the Biome extension (`zed: extensions`, search for Biome), or the formatter setting has nothing to run.
+- Zed cannot take safety rules from project files, so the hard rules above are all its agent has, and they are only
+  instructions. To have Zed enforce them, paste this into your own settings (`zed: open settings`), not the project's.
+  It denies Zed's direct edit and write tool calls on lock files and `.env` files (but not `.env.example`), plus the
+  destructive git commands (`git reset --hard`, `git checkout --`, `git restore`, `git clean`, and force push). It does
+  not stop the agent from changing those files through a terminal command, so keep terminal approval on if you need that
+  boundary:
+
+```json
+{
+  "agent": {
+    "tool_permissions": {
+      "tools": {
+        "edit_file": {
+          "always_deny": [
+            { "pattern": "(^|/)(package-lock\\.json|pnpm-lock\\.yaml|bun\\.lockb)$|\\.lock$" },
+            { "pattern": "(^|/)\\.env(\\.(local|development|production|test))?(\\.local)?$" }
+          ]
+        },
+        "write_file": {
+          "always_deny": [
+            { "pattern": "(^|/)(package-lock\\.json|pnpm-lock\\.yaml|bun\\.lockb)$|\\.lock$" },
+            { "pattern": "(^|/)\\.env(\\.(local|development|production|test))?(\\.local)?$" }
+          ]
+        },
+        "terminal": {
+          "always_deny": [
+            { "pattern": "git\\s+reset\\s+--hard" },
+            { "pattern": "git\\s+checkout\\s+--" },
+            { "pattern": "git\\s+restore\\b" },
+            { "pattern": "git\\s+clean\\b" },
+            { "pattern": "git\\s+push\\s+.*--force" }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+Zed's regex has no lookahead, so the `.env` pattern lists the usual names; add yours (say `.env.staging`) if you have
+others. For the same reason the git patterns are blunter than the hooks other assistants get: every `git restore` is
+denied, including `git restore --staged`, and so is every `git clean`, including the `-n` dry run. Zed's "Test Your
+Rules" checker (agent settings, Tool Permissions) shows what a pattern matches.
+
+If you use Antigravity, `.agents/skills/` holds the skills, `.agents/hooks.json` adds the same safety checks (it refuses
+edits to lock files and `.env`, and destructive git commands) and formats each file after an edit, and
+`.agents/mcp_config.json` points it at the documentation server. Antigravity ignores all of that until you trust the
+workspace, so choose "trust" when it asks the first time you open the project.
+
+If you use Gemini CLI, `.gemini/settings.json` points it at this file (`context.fileName`), registers the same
+documentation server, and wires the edit and shell guards. Skills load from `.agents/skills/`. Gemini CLI ignores that
+whole settings file until you trust the folder, so trust the folder when Gemini CLI asks.
+
+If you use Codex (the CLI or the IDE extension; the desktop app is not confirmed to read these project files), it reads
+this file and the skills in `.agents/skills/` on its own. `.codex/config.toml` points it at the same documentation
+server, and `.codex/hooks.json` adds the safety checks (it refuses edits to lock files and `.env`, and destructive git
+commands) and formats each file after an edit. Codex ignores both files at first:
+
+- Trust the project when Codex asks the first time you open it. That turns on the documentation server.
+- Run `/hooks` and approve each of the project's hooks. Until you do, the game has no guardrails. Codex asks for this
+  once per hook, and again after a kit update changes one.
+
+Some git commands (`git push --force`, `git branch -D`, `git stash drop`) need your go-ahead under other assistants;
+Codex cannot ask, so it refuses them. Run those yourself when you mean to.
+
+If you use GitHub Copilot (in VS Code, the Copilot CLI, or the cloud agent you assign issues to on github.com), it reads
+this file and the skills in `.agents/skills/` on its own. `.github/hooks/blit.json` adds the safety checks (it refuses
+edits to lock files and `.env`, and destructive git commands), formats each file after an edit, and installs
+dependencies when a session starts. `.mcp.json` points both VS Code and the Copilot CLI at the documentation server.
+Trust the folder when VS Code or the Copilot CLI asks: until you do, the hooks and the documentation server stay off.
+The cloud agent prepares its sandbox with `.github/workflows/copilot-setup-steps.yml`, but it cannot read an MCP server
+from project files - add `blit386-docs` (`https://blit386.dev/mcp`) in the repository's Copilot settings on github.com
+if you want it there.
+
+For other assistants (Windsurf and others), this file is your assistant's home base.
+
+Did not set up an assistant when you started the game? Run `npx blit agents add claude`, `npx blit agents add cursor`,
+`npx blit agents add copilot`, `npx blit agents add antigravity`, `npx blit agents add codex`,
+`npx blit agents add gemini`, `npx blit agents add opencode`, or `npx blit agents add zed` to add its files now.
+
+Run `npx blit agents sync` after a kit update (`npx blit upgrade`) to refresh the assistant files.
+
+<!-- blit-kit:managed:end -->
+
+## Your notes
+
+Everything below the managed end marker is yours. Write down decisions, todos, or project-specific rules here - for
+yourself or for your AI assistant. Kit updates (`npx blit agents sync`) rewrite only the managed part above and never
+touch this section.
