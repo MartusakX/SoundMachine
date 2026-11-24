@@ -1,6 +1,6 @@
 import { AudioClip, bootstrap, BT, Color32, Vector2i } from 'blit386';
 import './style.css';
-import playerSource from './audio-player.js?raw';
+import { exportSound } from './export-sound.js';
 import { AudioPlayer } from './audio-player.js';
 const player = new AudioPlayer();
 let filterEnabled = true;
@@ -319,7 +319,7 @@ function showDialog(mode){
  if(mode==='save'){body.innerHTML='<label>PRESET NAME<input id="patch-name" required maxlength="80" autocomplete="off"></label><p>Saves a preset JSON file to your disk. Only changed settings are stored.</p>';}
  if(mode==='load'){body.innerHTML='<label>PRESET FILE<input id="import-json" type="file" accept=".json,application/json" required></label><p>Choose a preset JSON file from your disk.</p>';document.getElementById('dialog-submit').disabled=false;}
  else document.getElementById('dialog-submit').disabled=false;
- if(mode==='export'){body.innerHTML='<p>Only differences from SoundCreator v1 defaults. Download the shared player once into your project; each sound then needs only this short snippet. Call playPreset from a click handler after BLIT386 initializes.</p><textarea id="export-code" readonly spellcheck="false" aria-label="Exported JavaScript"></textarea><button type="button" id="download-player">DOWNLOAD SHARED PLAYER</button>';body.querySelector('textarea').value=exportCode();body.querySelector('#download-player').onclick=()=>download(sharedPlayer(),'soundcreator-player.js','text/javascript');}
+ if(mode==='export'){body.innerHTML='<p>Standalone code for BLIT386 1.8+. Copy this entire block into your game module: no SoundMachine files needed. Create the sound once in init(), then call play() after a player gesture. Default and inactive settings are omitted. Filtered sounds use Web Audio directly, outside BLIT386 volume/mute buses.</p><textarea id="export-code" readonly spellcheck="false" aria-label="Exported JavaScript"></textarea>';body.querySelector('textarea').value=exportCode();}
 
  }catch(e){document.getElementById('dialog-error').textContent=e.message;}
  dialog.showModal();
@@ -347,35 +347,7 @@ function applyPatch(p){
  document.getElementById('filter-enabled').checked=filterEnabled;document.getElementById('loop').checked=loopEnabled;constrainEnvelope();refresh();
 }
 function exportCode(){
- return `import { playPreset } from './soundcreator-player.js';\n\nconst preset = ${JSON.stringify(compactPatch(),null,2)};\n\n// Call from a click handler after BLIT386 initializes.\nawait playPreset(preset);`;
-}
-function sharedPlayer(){
- return `import { AudioClip } from 'blit386';
-${playerSource}
-const defaults = ${JSON.stringify(defaults,null,2)};
-const waves = ${JSON.stringify(waves)};
-const player = new AudioPlayer();
-let clip;
-let generation = 0;
-export async function playPreset(preset = {version:1}) {
- if (preset.version !== 1) throw new Error('Unsupported preset version');
- const token = ++generation;
- await player.unlock();
- const p = {...defaults, ...preset};
- const v = {...defaults.values, ...preset.values};
- const next = await AudioClip.synth({
-  waveform:waves[p.waveform], frequency:v.frequency, duration:v.duration, volume:1,
-  envelope:{attack:v.attack,decay:v.tail,sustain:v.sustain,release:v.tail},
-  ...(p.sweepEnabled ? {pitchSweep:{toFrequency:v.sweep}} : {}),
-  ...(p.vibratoEnabled ? {vibrato:{rate:v.rate,depth:v.depth}} : {}),
-  noiseMix:v.noise,dutyCycle:v.duty,seed:v.seed
- });
- if (token !== generation) {next.unload(); return;}
- clip?.unload();clip=next;
- player.start(clip.buffer,{...v,pitch:p.pitchEnabled?v.pitch:1},p.loopEnabled,p.filterEnabled,p.filterType);
-}
-export function stopPreset() {++generation;player.stop();}
-`;
+ return exportSound({...snapshot(),waveform:waves[waveform]});
 }
 refresh();
 bootstrap(Synth);
