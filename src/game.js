@@ -319,7 +319,7 @@ function showDialog(mode){
  if(mode==='save'){body.innerHTML='<label>PRESET NAME<input id="patch-name" required maxlength="80" autocomplete="off"></label><p>Saves a preset JSON file to your disk. Only changed settings are stored.</p>';}
  if(mode==='load'){body.innerHTML='<label>PRESET FILE<input id="import-json" type="file" accept=".json,application/json" required></label><p>Choose a preset JSON file from your disk.</p>';document.getElementById('dialog-submit').disabled=false;}
  else document.getElementById('dialog-submit').disabled=false;
- if(mode==='export'){body.innerHTML='<p>Standalone code for BLIT386 1.8+. Copy this entire block into your game module: no SoundMachine files needed. Create the sound once in init(), then call play() after a player gesture. Default and inactive settings are omitted. Filtered sounds use Web Audio directly, outside BLIT386 volume/mute buses.</p><textarea id="export-code" readonly spellcheck="false" aria-label="Exported JavaScript"></textarea>';body.querySelector('textarea').value=exportCode();}
+ if(mode==='export'){body.innerHTML='<p>Standalone code for BLIT386 1.8+. Copy this entire block into your game module: no SoundMachine files needed. Create the sound once in init(), then call play() after a player gesture. Default and inactive settings are omitted. The filter is baked into the clip, so every sound plays through BLIT386 volume/mute buses.</p><textarea id="export-code" readonly spellcheck="false" aria-label="Exported JavaScript"></textarea>';body.querySelector('textarea').value=exportCode();}
 
  }catch(e){document.getElementById('dialog-error').textContent=e.message;}
  dialog.showModal();
