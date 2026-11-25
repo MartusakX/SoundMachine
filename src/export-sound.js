@@ -7,8 +7,12 @@ const changed = (values, defaults) => Object.fromEntries(
 const round = n => (Number.isInteger(n) ? n : Number(n.toPrecision(4)));
 // JSON with bare keys, indented to sit inside the generated function.
 const code = value => JSON.stringify(value, null, 2).replace(/"(\w+)":/g, '$1:').replace(/\n/g, '\n  ');
+// Preset name to an identifier part, so several exports can share one module: "Motor Vektor" -> "MotorVektor".
+const pascal = name => (name.replace(/\.json$/i, '').match(/\p{ID_Continue}+/gu) ?? ['sound'])
+    .map(word => word[0].toUpperCase() + word.slice(1).toLowerCase()).join('');
 
-export function exportSound({ values, waveform, pitchEnabled, vibratoEnabled, sweepEnabled, filterEnabled, filterType, loopEnabled }) {
+export function exportSound({ name = '', values, waveform, pitchEnabled, vibratoEnabled, sweepEnabled, filterEnabled, filterType, loopEnabled }) {
+    const id = pascal(name);
     const v = Object.fromEntries(Object.entries(values).map(([key, n]) => [key, round(n)]));
     const envelope = changed({ attack: v.attack, decay: v.tail, sustain: v.sustain, release: v.tail }, envelopeDefaults);
     const params = { waveform, frequency: v.frequency, duration: v.duration, seed: v.seed };
@@ -33,12 +37,13 @@ ${filterType !== 'lowpass' ? `  filter.type = '${filterType}';\n` : ''}${cutoff 
   source.start();
   clip.buffer.copyToChannel((await offline.startRendering()).getChannelData(0), 0);
 `;
-    return `import { AudioClip, BT } from 'blit386';
+    return `// BLIT386 1.8+. No SoundMachine files required.
+// Keep this import once per module; skip it if the module already imports AudioClip and BT.
+import { AudioClip, BT } from 'blit386';
 
-// BLIT386 1.8+. No SoundMachine files required.
-// In init(): this.sound = await createSound();
-// After a player gesture: const ref = this.sound.play(); stop it with BT.soundStop(ref).
-export async function createSound() {
+// In init(): this.sound${id} = await create${id}();
+// After a player gesture: const ref = this.sound${id}.play(); stop it with BT.soundStop(ref).
+export async function create${id}() {
   const clip = await AudioClip.synth(${code(params)});
 ${filter}
   return { clip, play: () => BT.soundPlay(clip, { ${Object.entries(options).map(([key, value]) => `${key}: ${value}`).join(', ')} }) };

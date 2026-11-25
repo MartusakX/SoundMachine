@@ -347,7 +347,7 @@ function applyPatch(p){
  document.getElementById('filter-enabled').checked=filterEnabled;document.getElementById('loop').checked=loopEnabled;constrainEnvelope();refresh();
 }
 function exportCode(){
- return exportSound({...snapshot(),waveform:waves[waveform]});
+ return exportSound({...snapshot(),waveform:waves[waveform],name:document.getElementById('preset-name').textContent});
 }
 refresh();
 bootstrap(Synth);
